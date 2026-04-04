@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>🏆 AI Insurance System</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+body{
+margin:0;
+font-family:'Segoe UI';
+display:flex;
+background:linear-gradient(135deg,#1e3c72,#2a5298);
+color:white;
+}
+
+/* SIDEBAR */
+.sidebar{
+width:240px;
+padding:20px;
+background:rgba(0,0,0,0.4);
+}
+.sidebar input,button{
+width:100%;
+margin:5px 0;
+padding:8px;
+border:none;
+border-radius:6px;
+}
+
+/* MAIN */
+.main{flex:1;padding:20px;}
+
+/* CARD */
+.card{
+background:rgba(255,255,255,0.1);
+padding:15px;
+border-radius:12px;
+margin-bottom:15px;
+}
+
+/* GRID */
+.grid{
+display:grid;
+grid-template-columns:repeat(4,1fr);
+gap:10px;
+}
+.kpi{
+background:rgba(255,255,255,0.2);
+padding:10px;
+text-align:center;
+border-radius:8px;
+}
+
+/* ALERT */
+.alert{padding:8px;margin:5px 0;border-radius:6px;}
+.red{background:#ff4d4d;}
+.yellow{background:#ffcc00;color:black;}
+.green{background:#00c853;}
+
+/* PROGRESS */
+.progress{height:20px;background:#333;border-radius:10px;}
+.bar{height:100%;border-radius:10px;text-align:center;}
+
+/* CHAT */
+#chat{height:120px;overflow:auto;background:#111;padding:10px;border-radius:8px;}
+
+canvas{max-height:260px;}
+</style>
+</head>
+
+<body>
+
+<div class="sidebar">
+<h2>🚀 AI Insurance</h2>
+
+<input id="memberId" placeholder="Enter Member ID (1-500)">
+<button onclick="loadData()">Load Data</button>
+
+<hr>
+
+<button onclick="showPage('dashboard')">Dashboard</button>
+<button onclick="showPage('basic')">Basic Info</button>
+<button onclick="showPage('insurance')">Insurance</button>
+<button onclick="showPage('claims')">Claims</button>
+</div>
+
+<div class="main">
+
+<!-- DASHBOARD -->
+<div id="dashboard" class="card">
+<h2>📊 Smart Dashboard</h2>
+
+<div class="grid">
+<div class="kpi" id="k1"></div>
+<div class="kpi" id="k2"></div>
+<div class="kpi" id="k3"></div>
+<div class="kpi" id="k4"></div>
+</div>
+
+<h3>📈 Overall Risk Score</h3>
+<div class="progress"><div id="riskBar" class="bar"></div></div>
+
+<h3>⚡ Automated Alerts</h3>
+<div id="alerts"></div>
+</div>
+
+<!-- BASIC -->
+<div id="basic" class="card" style="display:none;">
+<h2>👤 Basic Info</h2>
+<div id="basicData"></div>
+</div>
+
+<!-- INSURANCE -->
+<div id="insurance" class="card" style="display:none;">
+<h2>💰 Insurance</h2>
+<div id="insuranceData"></div>
+</div>
+
+<!-- CLAIMS -->
+<div id="claims" class="card" style="display:none;">
+<h2>📊 Claims</h2>
+<div id="claimsData"></div>
+</div>
+
+<!-- AI EXPLAIN -->
+<div class="card">
+<h3>🧠 AI Explanation</h3>
+<div id="explain"></div>
+</div>
+
+<!-- CHART -->
+<div class="card">
+<h3>📊 Risk Visualization</h3>
+<canvas id="chart"></canvas>
+</div>
+
+<!-- CHAT -->
+<div class="card">
+<h3>💬 AI Assistant</h3>
+<div id="chat"></div>
+<input id="q" placeholder="Ask about risk, premium, claim">
+<button onclick="ask()">Ask</button>
+</div>
+
+</div>
+
+<script>
+let d=null, chart=null;
+
+/* PAGE SWITCH */
+function showPage(id){
+["dashboard","basic","insurance","claims"].forEach(p=>{
+document.getElementById(p).style.display="none";
+});
+document.getElementById(id).style.display="block";
+}
+
+/* LOAD DATA */
+async function loadData(){
+let id=document.getElementById("memberId").value;
+
+if(!id){ alert("Enter valid ID"); return; }
+
+let res=await fetch(`http://127.0.0.1:8000/member/${id}`);
+d=await res.json();
+
+if(d.error){
+alert("Invalid ID");
+return;
+}
+
+renderAll();
+}
+
+/* RENDER */
+function renderAll(){
+
+/* KPI */
+k1.innerHTML=`Risk: ${d.risk_level}`;
+k2.innerHTML=`Claim: ${d.claim_probability}%`;
+k3.innerHTML=`Fraud: ${d.fraud_risk_score}%`;
+k4.innerHTML=`Premium: ₹${d.predicted_premium}`;
+
+/* BASIC */
+basicData.innerHTML=`
+Name: ${d.name}<br>
+Age: ${d.age}<br>
+Occupation: ${d.occupation}<br>
+Region: ${d.region}
+`;
+
+/* INSURANCE */
+insuranceData.innerHTML=`
+Policy: ${d.policy_type}<br>
+Premium Paid: ₹${d.premium_paid}<br>
+Predicted Premium: ₹${d.predicted_premium}
+`;
+
+/* CLAIMS */
+claimsData.innerHTML=`
+Previous Claims: ${d.previous_claims}<br>
+Last Amount: ₹${d.claim_amount_last}<br>
+Auto Claim: ₹${d.auto_claim.payout} (${d.auto_claim.reason})
+`;
+
+/* RISK BAR */
+let score=(d.claim_probability + d.fraud_risk_score)/2;
+riskBar.style.width=score+"%";
+riskBar.style.background=score>70?"#ff4d4d":score>40?"#ffcc00":"#00c853";
+riskBar.innerHTML=score.toFixed(1)+"%";
+
+/* ALERTS */
+let alerts="";
+if(d.claim_probability>70)
+alerts+=`<div class="alert red">High Claim Risk</div>`;
+if(d.fraud_risk_score>70)
+alerts+=`<div class="alert yellow">Fraud Risk</div>`;
+if(d.avg_aqi_region>100)
+alerts+=`<div class="alert red">High AQI Risk</div>`;
+if(d.natural_disaster_risk>60)
+alerts+=`<div class="alert red">Flood Risk</div>`;
+if(d.auto_claim.payout>0)
+alerts+=`<div class="alert green">Auto Claim ₹${d.auto_claim.payout}</div>`;
+document.getElementById("alerts").innerHTML=alerts || "✅ No alerts";
+
+/* AI EXPLAIN */
+explain.innerHTML=`
+Risk Level: ${d.risk_level}<br>
+Reasons:<br>
+${d.risk_reasons.join("<br>")}
+`;
+
+/* CHART */
+if(chart) chart.destroy();
+
+chart=new Chart(document.getElementById("chart"),{
+type:'bar',
+data:{
+labels:["Claim","Fraud","AQI","Disaster"],
+datasets:[{
+data:[
+d.claim_probability,
+d.fraud_risk_score,
+d.avg_aqi_region,
+d.natural_disaster_risk
+],
+backgroundColor:["#ff4d4d","#ffcc00","#00e6e6","#b366ff"]
+}]
+},
+options:{
+plugins:{legend:{labels:{color:"white"}}},
+scales:{
+x:{ticks:{color:"white"}},
+y:{ticks:{color:"white"}}
+}
+}
+});
+}
+
+/* AI CHAT */
+function ask(){
+if(!d){ alert("Load data first"); return; }
+
+let q=document.getElementById("q").value.toLowerCase();
+document.getElementById("q").value="";
+
+let ans="";
+
+if(q.includes("risk"))
+ans=`Risk is ${d.risk_level} due to ${d.risk_reasons.join(", ")}`;
+else if(q.includes("premium"))
+ans=`Premium is ₹${d.predicted_premium}`;
+else if(q.includes("claim"))
+ans=`Claim probability is ${d.claim_probability}%`;
+else
+ans="Ask about risk, premium, claim";
+
+chat.innerHTML+=`<div>🤖 ${ans}</div>`;
+chat.scrollTop=chat.scrollHeight;
+}
+</script>
+
+</body>
+</html>
